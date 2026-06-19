@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zuma Level Map Generator</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #game-container {
+            display: none; /* Hide the actual phaser canvas */
+        }
+        .map-container {
+            margin: 20px auto;
+            padding: 10px;
+            background: #333;
+            border-radius: 10px;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        img {
+            border: 2px solid white;
+        }
+        h2 { margin-top: 0; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="levels.js"></script>
+</head>
+<body>
+    <h1>ZUMA Map Generator</h1>
+    <p>Right-click the images below and click <strong>"Save image as..."</strong></p>
+    <p>Create a folder named <code>mapsai</code> inside your <code>assets</code> folder.</p>
+    <p>Save them into your `d:\ZUMA\assets\mapsai\` folder as exactly `map_1.png`, `map_2.png`, etc.</p>
+    
+    <div id="output"></div>
+    <div id="game-container"></div>
+
+    <script>
+        class GeneratorScene extends Phaser.Scene {
+            constructor() {
+                super('GeneratorScene');
+            }
+
+            create() {
+                this.currentLevel = 0;
+                this.generateNext();
+            }
+
+            generateNext() {
+                if (this.currentLevel >= window.LEVELS.length) {
+                    console.log("All maps generated!");
+                    return;
+                }
+
+                const levelData = window.LEVELS[this.currentLevel];
+                
+                // Clear background
+                this.cameras.main.setBackgroundColor('#000000');
+                this.children.removeAll(); // Clear previous graphics
+
+                const graphics = this.add.graphics();
+
+                // Draw Path
+                const path = new Phaser.Curves.Spline(levelData.points);
+                graphics.lineStyle(44, 0xffffff, 1);
+                path.draw(graphics, 256); // 256 segments for smooth curve
+
+                // Draw Start (Green)
+                graphics.fillStyle(0x00ff00, 1);
+                graphics.fillCircle(levelData.points[0], levelData.points[1], 30);
+
+                // Draw End (Red)
+                const endX = levelData.points[levelData.points.length - 2];
+                const endY = levelData.points[levelData.points.length - 1];
+                graphics.fillStyle(0xff0000, 1);
+                graphics.fillCircle(endX, endY, 30);
+
+                // Draw Shooter (Yellow)
+                graphics.fillStyle(0xffff00, 1);
+                graphics.fillCircle(levelData.shooter.x, levelData.shooter.y, 30);
+
+                // Wait one frame to ensure rendering, then snapshot
+                this.time.delayedCall(50, () => {
+                    this.game.renderer.snapshot((image) => {
+                        const div = document.createElement('div');
+                        div.className = 'map-container';
+                        
+                        const title = document.createElement('h2');
+                        title.innerText = `map_${this.currentLevel + 1}.png`;
+                        div.appendChild(title);
+
+                        image.style.width = '400px'; // display half size
+                        image.style.height = '300px';
+                        div.appendChild(image);
+
+                        document.getElementById('output').appendChild(div);
+
+                        this.currentLevel++;
+                        this.generateNext();
+                    });
+                });
+            }
+        }
+
+        const config = {
+            type: Phaser.WEBGL, // WebGL is required for reliable snapshots in Phaser 3
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            scene: [ GeneratorScene ],
+            preserveDrawingBuffer: true // Crucial for taking snapshots!
+        };
+
+        new Phaser.Game(config);
+    </script>
+</body>
+</html>

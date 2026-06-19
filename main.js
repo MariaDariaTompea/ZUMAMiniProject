@@ -1,3 +1,5 @@
+window.currentLevelIndex = 0;
+
 const config = {
     type: Phaser.AUTO,
     width: 800,

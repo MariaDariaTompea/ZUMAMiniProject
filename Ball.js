@@ -32,4 +32,34 @@ class Ball extends Phaser.GameObjects.Sprite {
             this.setVisible(true);
         }
     }
+
+    pop() {
+        const colorMap = {
+            'ball_red': 0xff0000,
+            'ball_green': 0x00ff00,
+            'ball_blue': 0x0000ff,
+            'ball_yellow': 0xffff00
+        };
+        const tintColor = colorMap[this.texture.key] || 0xffffff;
+
+        const emitter = this.scene.add.particles(this.x, this.y, 'shard', {
+            tint: tintColor,
+            speed: { min: 100, max: 350 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 1.5, end: 0 },
+            alpha: { start: 1, end: 0 },
+            rotate: { min: 0, max: 720 },
+            lifespan: 300,
+            blendMode: 'NORMAL'
+        });
+
+        emitter.explode(15);
+
+        this.scene.time.delayedCall(400, () => {
+            emitter.destroy();
+        });
+
+        this.setVisible(false);
+        this.destroy();
+    }
 }
