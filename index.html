@@ -4,27 +4,466 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zuma's Revenge - Phaser 3</title>
+    
+    <!-- Google Fonts: Inter for modern, clean typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #111;
+            background-color: #0b0c10;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            color: white;
-            font-family: sans-serif;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
         }
+
+        /* 
+         * Responsive Wrapper using min() to ensure the game maintains aspect ratio,
+         * scales with viewport, and never overflows either height or width.
+         */
+        #game-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: min(95vw, calc((95vh - 60px) * 4 / 3));
+            height: min(calc(95vw * 3 / 4 + 60px), 95vh);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid #1f2833;
+            background-color: #000;
+        }
+
+        /* Modern Glassmorphic Status Bar above the game */
+        #game-header {
+            height: 60px;
+            background: linear-gradient(180deg, #1f2833, #0b0c10);
+            border-bottom: 2px solid #45f3ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        /* Left side UI: Score and Lives */
+        #left-ui {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .ui-label {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: #c5c6c7;
+            text-transform: uppercase;
+        }
+
+        .ui-value {
+            font-size: 16px;
+            font-weight: 800;
+            color: #45f3ff;
+            text-shadow: 0 0 8px rgba(69, 243, 255, 0.4);
+        }
+
+        #lives-val {
+            letter-spacing: 2px;
+            font-size: 14px;
+        }
+
+        /* Center side UI: Zuma Progress Bar */
+        #center-ui {
+            flex-grow: 1;
+            max-width: 300px;
+            margin: 0 20px;
+        }
+
+        #zuma-bar-container {
+            position: relative;
+            width: 100%;
+            height: 22px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1.5px solid #1f2833;
+            border-radius: 11px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        #zuma-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff3300, #ffcc00);
+            transition: width 0.2s ease-out, background-color 0.3s ease, box-shadow 0.3s ease;
+            border-radius: 9px;
+        }
+
+        #zuma-bar-text {
+            position: relative;
+            z-index: 2;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+            text-transform: uppercase;
+        }
+
+        /* Zuma active pulsing effect */
+        .zuma-active #zuma-bar-fill {
+            background: linear-gradient(90deg, #00ff66, #00ffff) !important;
+            animation: zumaPulse 1s infinite alternate;
+        }
+
+        @keyframes zumaPulse {
+            from {
+                box-shadow: 0 0 5px #00ff66, inset 0 0 5px #00ff66;
+                filter: brightness(1.0);
+            }
+            to {
+                box-shadow: 0 0 15px #00ff66, inset 0 0 10px #00ff66;
+                filter: brightness(1.4);
+            }
+        }
+
+        /* Right side UI: Menu Button */
+        #right-ui {
+            display: flex;
+            align-items: center;
+        }
+
+        #menu-btn {
+            background: linear-gradient(135deg, #1f2833, #0b0c10);
+            border: 1px solid #45f3ff;
+            border-radius: 6px;
+            color: #45f3ff;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 6px 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+        }
+
+        #menu-btn:hover {
+            background: #45f3ff;
+            color: #0b0c10;
+            box-shadow: 0 0 12px rgba(69, 243, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        #menu-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Game Container containing Phaser canvas and Overlays */
         #game-container {
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            width: 100%;
+            flex-grow: 1;
+            position: relative;
+            background-color: #000;
+        }
+
+        /* Phaser canvas within the container */
+        #game-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Overlay Styles for Pause, Win, Loss, Game Over screens */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 12, 16, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 1;
+            transition: opacity 0.25s ease;
+        }
+
+        .overlay.hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .menu-content {
+            background: #1f2833;
+            border: 2px solid #45f3ff;
+            border-radius: 12px;
+            padding: 30px 40px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8);
+            max-width: 320px;
+            width: 80%;
+            animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .menu-content h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 26px;
+            font-weight: 800;
+            color: #45f3ff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(69, 243, 255, 0.3);
+        }
+
+        .menu-content p {
+            margin: 10px 0 20px 0;
+            color: #c5c6c7;
+            font-size: 14px;
+        }
+
+        .overlay-btn {
+            display: block;
+            width: 100%;
+            margin: 12px 0;
+            padding: 12px;
+            background: linear-gradient(135deg, #0b0c10, #1f2833);
+            border: 1px solid #1f2833;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+        }
+
+        .overlay-btn:hover {
+            border-color: #45f3ff;
+            box-shadow: 0 0 15px rgba(69, 243, 255, 0.3);
+            background: #45f3ff;
+            color: #0b0c10;
+            transform: scale(1.03);
+        }
+
+        .overlay-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Specialized Title Colors */
+        .lost-title {
+            color: #ff3333 !important;
+            text-shadow: 0 0 10px rgba(255, 51, 51, 0.3) !important;
+        }
+
+        .gameover-title {
+            color: #ff3333 !important;
+            text-shadow: 0 0 10px rgba(255, 51, 51, 0.3) !important;
+        }
+
+        .win-title {
+            color: #00ff66 !important;
+            text-shadow: 0 0 10px rgba(0, 255, 102, 0.3) !important;
         }
     </style>
+    
     <!-- Load Phaser 3 from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div id="game-container"></div>
+    <div id="game-wrapper">
+        <!-- Status Bar Sitting Above Game -->
+        <div id="game-header">
+            <div id="left-ui">
+                <div>
+                    <span class="ui-label">Score:</span>
+                    <span id="score-val" class="ui-value">0</span>
+                </div>
+                <div>
+                    <span class="ui-label">Lives:</span>
+                    <span id="lives-val" class="ui-value">💚💚💚</span>
+                </div>
+            </div>
+            <div id="center-ui">
+                <div id="zuma-bar-container">
+                    <div id="zuma-bar-fill"></div>
+                    <span id="zuma-bar-text">ZUMA</span>
+                </div>
+            </div>
+            <div id="right-ui">
+                <button id="menu-btn" onclick="togglePauseMenu()">MENU</button>
+            </div>
+        </div>
+
+        <!-- Phaser Game Container and Overlays -->
+        <div id="game-container">
+            <!-- Canvas is spawned here by Phaser config -->
+
+            <!-- Pause Menu Overlay -->
+            <div id="pause-menu" class="overlay hidden">
+                <div class="menu-content">
+                    <h2>Paused</h2>
+                    <button class="overlay-btn" onclick="resumeGame()">Resume</button>
+                    <button class="overlay-btn" onclick="restartLevel()">Restart Level</button>
+                    <button class="overlay-btn" onclick="exitToMainMenu()">Exit Game</button>
+                </div>
+            </div>
+            
+            <!-- Level Lost Overlay -->
+            <div id="try-again-screen" class="overlay hidden">
+                <div class="menu-content">
+                    <h2 class="lost-title">Level Lost</h2>
+                    <p>You have <span id="remaining-lives-text" style="color: #ff3333; font-weight: 800;">2</span> lives remaining.</p>
+                    <button class="overlay-btn" onclick="retryLevel()">Try Again</button>
+                </div>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="game-over-screen" class="overlay hidden">
+                <div class="menu-content">
+                    <h2 class="gameover-title">Game Over</h2>
+                    <p>Your Final Score: <span id="final-score-text" style="color: #45f3ff; font-weight: 800;">0</span></p>
+                    <button class="overlay-btn" onclick="restartWholeGame()">Play Again</button>
+                </div>
+            </div>
+
+            <!-- Level Completed Overlay -->
+            <div id="level-complete-screen" class="overlay hidden">
+                <div class="menu-content">
+                    <h2 class="win-title">Level Completed!</h2>
+                    <p>Current Score: <span id="complete-score-text" style="color: #00ff66; font-weight: 800;">0</span></p>
+                    <button class="overlay-btn" id="next-level-btn" onclick="nextLevel()">Next Level</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Overlay Script Handlers -->
+    <script>
+        function togglePauseMenu() {
+            // Disable menu toggle if other overlays are showing
+            const isGameOverOpen = !document.getElementById('game-over-screen').classList.contains('hidden');
+            const isTryAgainOpen = !document.getElementById('try-again-screen').classList.contains('hidden');
+            const isWinOpen = !document.getElementById('level-complete-screen').classList.contains('hidden');
+            if (isGameOverOpen || isTryAgainOpen || isWinOpen) return;
+
+            const pauseMenu = document.getElementById('pause-menu');
+            const isHidden = pauseMenu.classList.contains('hidden');
+            if (isHidden) {
+                pauseMenu.classList.remove('hidden');
+                if (window.game) {
+                    window.game.scene.pause('GameScene');
+                }
+            } else {
+                pauseMenu.classList.add('hidden');
+                if (window.game) {
+                    window.game.scene.resume('GameScene');
+                }
+            }
+        }
+
+        function resumeGame() {
+            document.getElementById('pause-menu').classList.add('hidden');
+            if (window.game) {
+                window.game.scene.resume('GameScene');
+            }
+        }
+
+        function retryLevel() {
+            document.getElementById('try-again-screen').classList.add('hidden');
+            if (window.game) {
+                const scene = window.game.scene.getScene('GameScene');
+                if (scene) {
+                    window.game.scene.resume('GameScene');
+                    scene.scene.restart();
+                }
+            }
+        }
+
+        function restartLevel() {
+            document.getElementById('pause-menu').classList.add('hidden');
+            if (window.game) {
+                const scene = window.game.scene.getScene('GameScene');
+                if (scene) {
+                    window.game.scene.resume('GameScene');
+                    scene.scene.restart();
+                }
+            }
+        }
+
+        function restartWholeGame() {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            window.currentLevelIndex = 0;
+            window.playerLives = 3;
+            window.playerScore = 0;
+            if (window.game) {
+                const scene = window.game.scene.getScene('GameScene');
+                if (scene) {
+                    window.game.scene.resume('GameScene');
+                    scene.scene.start('BootScene');
+                }
+            }
+        }
+
+        function nextLevel() {
+            document.getElementById('level-complete-screen').classList.add('hidden');
+            if (window.currentLevelIndex < window.LEVELS.length - 1) {
+                window.currentLevelIndex++;
+            } else {
+                // Wrap around/restart after completing all levels
+                window.currentLevelIndex = 0;
+                window.playerLives = 3;
+                window.playerScore = 0;
+            }
+            if (window.game) {
+                const scene = window.game.scene.getScene('GameScene');
+                if (scene) {
+                    window.game.scene.resume('GameScene');
+                    scene.scene.start('BootScene');
+                }
+            }
+        }
+
+        function exitToMainMenu() {
+            // Reloader to reset everything to initial state
+            window.location.reload();
+        }
+
+        // Global Esc Key Listener to toggle Pause Menu
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                togglePauseMenu();
+            }
+        });
+    </script>
 
     <!-- Game Scripts -->
     <script src="levels.js?v=2"></script>

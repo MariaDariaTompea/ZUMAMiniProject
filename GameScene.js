@@ -31,30 +31,26 @@ class GameScene extends Phaser.Scene {
         this.input.mouse.disableContextMenu();
         
         // Scoring and Combos
-        this.score = 0;
+        this.score = window.playerScore || 0;
         this.zumaScore = 1000;
         this.zumaMode = false;
         this.consecutiveMatches = 0;
         this.comboMultiplier = 1;
+        this.levelLostHandled = false;
+        this.levelCompleteHandled = false;
 
-        this.scoreText = this.add.text(20, 20, 'Score: 0', {
-            fontSize: '24px',
-            fontFamily: 'Arial',
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
-        });
+        // Hide all overlay screens
+        document.getElementById('pause-menu').classList.add('hidden');
+        document.getElementById('try-again-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('level-complete-screen').classList.add('hidden');
 
-        // Zuma Bar Background
-        this.barBg = this.add.graphics();
-        this.barBg.fillStyle(0x000000, 0.8);
-        this.barBg.lineStyle(2, 0xffffff, 1);
-        this.barBg.fillRect(200, 20, 400, 20);
-        this.barBg.strokeRect(200, 20, 400, 20);
-
-        // Zuma Bar Fill
-        this.barFill = this.add.graphics();
-        this.updateZumaBar();
+        // Setup initial UI states in the HTML status bar
+        const container = document.getElementById('zuma-bar-container');
+        if (container) {
+            container.classList.remove('zuma-active');
+        }
+        this.updateHTMLUI();
         
         this.initBalls();
         
@@ -158,29 +154,40 @@ class GameScene extends Phaser.Scene {
         if (this.chain && this.chain.state === 'GAME_OVER') return;
         
         this.score += points;
-        this.scoreText.setText('Score: ' + this.score);
+        window.playerScore = this.score;
+        this.updateHTMLUI();
         
         if (!this.zumaMode) {
-            this.updateZumaBar();
-            
             if (this.score >= this.zumaScore) {
                 this.triggerZumaMode();
             }
         }
     }
 
-    updateZumaBar() {
-        this.barFill.clear();
-        const progress = Math.min(this.score / this.zumaScore, 1);
-        const fillWidth = progress * 396; // 400 - 4 for padding
-        
-        // Color changes from red to green as it fills
-        const r = Math.floor(255 * (1 - progress));
-        const g = Math.floor(255 * progress);
-        const color = (r << 16) + (g << 8);
-        
-        this.barFill.fillStyle(color, 1);
-        this.barFill.fillRect(202, 22, fillWidth, 16);
+    updateHTMLUI() {
+        const scoreVal = document.getElementById('score-val');
+        if (scoreVal) {
+            scoreVal.innerText = this.score;
+        }
+
+        const livesVal = document.getElementById('lives-val');
+        if (livesVal) {
+            livesVal.innerText = '💚'.repeat(Math.max(0, window.playerLives));
+        }
+
+        const barFill = document.getElementById('zuma-bar-fill');
+        if (barFill) {
+            const progress = Math.min(this.score / this.zumaScore, 1);
+            barFill.style.width = (progress * 100) + '%';
+            
+            if (!this.zumaMode) {
+                // Color transition from red/orange (0% score) to green (100% score)
+                const r = Math.floor(255 * (1 - progress));
+                const g = Math.floor(255 * progress);
+                barFill.style.backgroundColor = `rgb(${r}, ${g}, 0)`;
+                barFill.style.boxShadow = `0 0 10px rgba(${r}, ${g}, 0, 0.5)`;
+            }
+        }
     }
 
     triggerZumaMode() {
@@ -204,21 +211,11 @@ class GameScene extends Phaser.Scene {
             onComplete: () => zumaText.destroy()
         });
 
-        // Make the bar shine permanently
-        this.tweens.addCounter({
-            from: 0,
-            to: 255,
-            duration: 500,
-            yoyo: true,
-            repeat: -1,
-            onUpdate: (tween) => {
-                const val = Math.floor(tween.getValue());
-                const color = (val << 16) + (255 << 8) + val;
-                this.barFill.clear();
-                this.barFill.fillStyle(color, 1);
-                this.barFill.fillRect(202, 22, 396, 16);
-            }
-        });
+        // Add the CSS class to activate the glowing animation on the HTML Zuma progress bar
+        const container = document.getElementById('zuma-bar-container');
+        if (container) {
+            container.classList.add('zuma-active');
+        }
     }
 
     loadNextBall() {
@@ -388,32 +385,34 @@ class GameScene extends Phaser.Scene {
             }
         }
 
-        // Display Game Over screen when all balls are eaten
+        // Handle level loss when all balls are eaten
         if (this.chain && this.chain.state === 'GAME_OVER' && this.chain.segments.length === 0) {
-            if (!this.gameOverText) {
-                this.gameOverText = this.add.text(400, 300, 'GAME OVER', {
-                    fontSize: '64px',
-                    fontFamily: 'Arial',
-                    color: '#ff0000',
-                    stroke: '#ffffff',
-                    strokeThickness: 6
-                }).setOrigin(0.5);
-                
-                this.add.text(400, 380, 'Click to Restart', {
-                    fontSize: '32px',
-                    fontFamily: 'Arial',
-                    color: '#ffffff'
-                }).setOrigin(0.5);
+            if (!this.levelLostHandled) {
+                this.levelLostHandled = true;
                 
                 // Clear any remaining projectiles
                 if (this.projectilesGroup) {
                     this.projectilesGroup.clear(true, true);
                 }
+
+                // Decrement life
+                window.playerLives--;
                 
-                // Wait for click to restart
-                this.input.once('pointerdown', () => {
-                    this.scene.restart();
-                });
+                // Update HTML UI
+                this.updateHTMLUI();
+                
+                if (window.playerLives > 0) {
+                    // Show Try Again overlay
+                    document.getElementById('remaining-lives-text').innerText = window.playerLives;
+                    document.getElementById('try-again-screen').classList.remove('hidden');
+                } else {
+                    // Show Game Over overlay
+                    document.getElementById('final-score-text').innerText = this.score;
+                    document.getElementById('game-over-screen').classList.remove('hidden');
+                }
+                
+                // Pause the game scene
+                this.scene.pause();
             }
         }
 
@@ -431,50 +430,46 @@ class GameScene extends Phaser.Scene {
         }
 
         // Display You Win screen when all visible balls are cleared in Zuma mode
-        if (this.zumaMode && this.chain && this.chain.state !== 'GAME_OVER' && visibleBallsCount === 0) {
-            // Clean up any remaining hidden balls in the entry portal
-            if (this.chain.segments.length > 0) {
-                this.chain.segments.forEach(seg => {
-                    seg.balls.forEach(ball => ball.destroy());
-                });
-                this.chain.segments = [];
-            }
+        // Win condition: Either Zuma mode active & all balls cleared, or board cleared when playing/rollout
+        const boardCleared = (this.chain && (this.chain.state === 'PLAYING' || this.chain.state === 'ROLLOUT') && visibleBallsCount === 0);
 
-            if (!this.winText) {
-                this.winText = this.add.text(400, 300, 'ZUMA COMPLETED!\nYOU WIN!', {
-                    fontSize: '48px',
-                    fontFamily: 'Arial',
-                    color: '#00ff00',
-                    stroke: '#000000',
-                    strokeThickness: 6,
-                    align: 'center'
-                }).setOrigin(0.5);
-                
-                // Advance Level Logic
-                if (window.currentLevelIndex < window.LEVELS.length - 1) {
-                    this.add.text(400, 400, 'Click for NEXT LEVEL', {
-                        fontSize: '32px',
-                        fontFamily: 'Arial',
-                        color: '#ffffff'
-                    }).setOrigin(0.5);
-                    
-                    this.input.once('pointerdown', () => {
-                        window.currentLevelIndex++;
-                        this.scene.start('BootScene'); // Must reboot to load the new map image
+        if (boardCleared && this.chain.state !== 'GAME_OVER') {
+            if (!this.levelCompleteHandled) {
+                this.levelCompleteHandled = true;
+
+                // Clean up any remaining hidden balls in the entry portal
+                if (this.chain.segments.length > 0) {
+                    this.chain.segments.forEach(seg => {
+                        seg.balls.forEach(ball => ball.destroy());
                     });
-                } else {
-                    this.winText.setText("CONGRATULATIONS!\nYOU BEAT ALL " + window.LEVELS.length + " LEVELS!");
-                    this.add.text(400, 400, 'Click to restart from Level 1', {
-                        fontSize: '32px',
-                        fontFamily: 'Arial',
-                        color: '#ffffff'
-                    }).setOrigin(0.5);
-                    
-                    this.input.once('pointerdown', () => {
-                        window.currentLevelIndex = 0;
-                        this.scene.start('BootScene');
-                    });
+                    this.chain.segments = [];
                 }
+
+                // Clean up any remaining projectiles
+                if (this.projectilesGroup) {
+                    this.projectilesGroup.clear(true, true);
+                }
+
+                // Show Level Complete overlay
+                document.getElementById('complete-score-text').innerText = this.score;
+                
+                const nextLevelBtn = document.getElementById('next-level-btn');
+                if (window.currentLevelIndex < window.LEVELS.length - 1) {
+                    document.getElementById('level-complete-screen').querySelector('h2').innerText = 'Level Completed!';
+                    if (nextLevelBtn) {
+                        nextLevelBtn.innerText = 'Next Level';
+                    }
+                } else {
+                    document.getElementById('level-complete-screen').querySelector('h2').innerText = 'YOU BEAT THE GAME!';
+                    if (nextLevelBtn) {
+                        nextLevelBtn.innerText = 'Play Again';
+                    }
+                }
+                
+                document.getElementById('level-complete-screen').classList.remove('hidden');
+
+                // Pause the game scene
+                this.scene.pause();
             }
         }
     }
