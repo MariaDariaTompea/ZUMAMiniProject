@@ -15,7 +15,20 @@ class BootScene extends Phaser.Scene {
         this.load.image(bgKey, `assets/maps/level${levelNum}/back.png`);
         this.load.image(fgKey, `assets/maps/level${levelNum}/front.png`);
 
-        // Procedural fallback if the background image is missing
+        // Load custom ball textures (normal state)
+        this.load.image('ball_red', 'assets/balls/red_normal.png');
+        this.load.image('ball_green', 'assets/balls/green_normal.png');
+        this.load.image('ball_blue', 'assets/balls/blue_normal.png');
+        this.load.image('ball_yellow', 'assets/balls/yellow_normal.png');
+
+        const ballColors = [
+            { key: 'ball_red', color: 0xff0000 },
+            { key: 'ball_green', color: 0x00ff00 },
+            { key: 'ball_blue', color: 0x0000ff },
+            { key: 'ball_yellow', color: 0xffff00 }
+        ];
+
+        // Procedural fallback if assets are missing
         this.load.on('loaderror', (fileObj) => {
             if (fileObj.key === bgKey) {
                 console.warn(`Map background image assets/maps/level${levelNum}/back.png not found. Generating a procedural fallback background!`);
@@ -67,30 +80,28 @@ class BootScene extends Phaser.Scene {
                     fallbackGraphics.destroy();
                 }
             }
+
+            // Check if it is a missing ball texture and generate a procedural fallback
+            const matchedBallColor = ballColors.find(b => b.key === fileObj.key);
+            if (matchedBallColor) {
+                console.warn(`Ball texture ${fileObj.key} not found. Generating a procedural fallback!`);
+                const fallbackGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+                fallbackGraphics.fillStyle(matchedBallColor.color, 1);
+                fallbackGraphics.fillCircle(22, 22, 22);
+                
+                // Add a little highlight to make it look 3D
+                fallbackGraphics.fillStyle(0xffffff, 0.4);
+                fallbackGraphics.fillCircle(14, 14, 10);
+                
+                fallbackGraphics.generateTexture(matchedBallColor.key, 44, 44);
+                fallbackGraphics.destroy();
+            }
         });
 
-        // 1. Generate Ball Graphics
-        const ballColors = [
-            { key: 'ball_red', color: 0xff0000 },
-            { key: 'ball_green', color: 0x00ff00 },
-            { key: 'ball_blue', color: 0x0000ff },
-            { key: 'ball_yellow', color: 0xffff00 }
-        ];
-
+        // 1. Generate programmatic helper graphics (shard & shooter)
         const graphics = this.add.graphics();
-        ballColors.forEach(b => {
-            graphics.clear();
-            graphics.fillStyle(b.color, 1);
-            graphics.fillCircle(22, 22, 22);
-            
-            // Add a little highlight to make it look 3D
-            graphics.fillStyle(0xffffff, 0.4);
-            graphics.fillCircle(14, 14, 10);
-            graphics.generateTexture(b.key, 44, 44);
-        });
-
+        
         // Create a sharp shard texture for the shattering effect
-        graphics.clear();
         graphics.fillStyle(0xffffff, 1);
         graphics.beginPath();
         graphics.moveTo(5, 0);
@@ -99,7 +110,6 @@ class BootScene extends Phaser.Scene {
         graphics.closePath();
         graphics.fillPath();
         graphics.generateTexture('shard', 10, 10);
-
         graphics.destroy();
 
         // 2. Generate Shooter (Frog) Graphic
