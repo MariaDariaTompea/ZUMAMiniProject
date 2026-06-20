@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zuma Spline Path Designer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="levels.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f1115;
+            --bg-secondary: #181c24;
+            --bg-tertiary: #222936;
+            --accent-purple: #a855f7;
+            --accent-green: #22c55e;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #2e3748;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 380px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .card {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Form elements */
+        .btn {
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            border-color: var(--accent-purple);
+            background-color: #252230;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-purple);
+            border: none;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #9333ea;
+        }
+
+        .btn-success {
+            background-color: var(--accent-green);
+            border: none;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #16a34a;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .range-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+        }
+
+        /* Central Canvas Area */
+        #main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-primary);
+            position: relative;
+            padding: 20px;
+        }
+
+        #canvas-container {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+        }
+
+        canvas {
+            display: block;
+            background-color: #12141a;
+            cursor: crosshair;
+        }
+
+        /* Footer / Floating Exporter */
+        #exporter {
+            width: 800px;
+            margin-top: 15px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            background-color: var(--bg-primary);
+            color: var(--accent-green);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            padding: 10px;
+            resize: none;
+            outline: none;
+        }
+
+        /* Instructions overlay */
+        .instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(24, 28, 36, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .instructions span {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <div>
+            <h1>ZUMA Path Designer</h1>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">Create complex tracks & mathematical curves</p>
+        </div>
+
+        <div>
+            <div class="section-title">Load Level from levels.js</div>
+            <div class="card">
+                <select id="level-selector" onchange="loadLevelFromList(this.value)" style="width: 100%; padding: 8px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; outline: none; cursor: pointer;">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Design Presets</div>
+            <div class="card">
+                <div class="grid-2">
+                    <button class="btn" onclick="applyPreset('spiral_in')">Spiral In</button>
+                    <button class="btn" onclick="applyPreset('spiral_out')">Spiral Out</button>
+                    <button class="btn" onclick="applyPreset('zigzag')">Zig-Zag Wave</button>
+                    <button class="btn" onclick="applyPreset('infinity')">Double Loop</button>
+                </div>
+                <button class="btn" style="border-color: var(--accent-red); color: var(--accent-red);" onclick="clearPoints()">Clear Path</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Curve Parameters</div>
+            <div class="card">
+                <div class="range-container">
+                    <label>Center X <span id="val-cx">400</span></label>
+                    <input type="range" id="param-cx" min="100" max="700" value="400" oninput="regenerateCurve()">
+                </div>
+                <div class="range-container">
+                    <label>Center Y <span id="val-cy">300</span></label>
+                    <input type="range" id="param-cy" min="100" max="500" value="300" oninput="regenerateCurve()">
+                </div>
+                <div class="range-container">
+                    <label>Loops / Turns <span id="val-loops">2.0</span></label>
+                    <input type="range" id="param-loops" min="0.5" max="4.0" step="0.1" value="2.0" oninput="regenerateCurve()">
+                </div>
+                <div class="range-container">
+                    <label>Start Radius <span id="val-r1">320</span></label>
+                    <input type="range" id="param-r1" min="50" max="400" value="320" oninput="regenerateCurve()">
+                </div>
+                <div class="range-container">
+                    <label>End Radius <span id="val-r2">80</span></label>
+                    <input type="range" id="param-r2" min="20" max="300" value="80" oninput="regenerateCurve()">
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Interactive Actions</div>
+            <div class="card">
+                <button class="btn btn-primary" id="btn-simulate" onclick="toggleSimulation()">Play Simulation</button>
+                <div class="grid-2">
+                    <button class="btn" onclick="moveShooterMode()">Place Shooter</button>
+                    <button class="btn" onclick="resetShooter()">Center Shooter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div id="canvas-container">
+            <canvas id="editorCanvas" width="800" height="600"></canvas>
+        </div>
+
+        <div id="exporter">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.85rem; font-weight: 600;">levels.js Configuration</span>
+                <button class="btn btn-success" onclick="copyConfig()">Copy Config Code</button>
+            </div>
+            <textarea id="configOutput" readonly></textarea>
+        </div>
+
+        <div class="instructions">
+            <span>🖱️ Canvas Controls:</span>
+            • <b>Left-Click empty space:</b> Add new point<br>
+            • <b>Drag Point handle:</b> Reposition point<br>
+            • <b>Right-Click handle:</b> Delete point<br>
+            • <b>Green Circle:</b> Start portal<br>
+            • <b>Red Circle:</b> Skull exit portal<br>
+            • <b>Yellow Crosshair:</b> Frog shooter
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('editorCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let controlPoints = [];
+        let shooter = { x: 400, y: 300 };
+        let selectedPointIndex = -1;
+        let isDraggingShooter = false;
+        let isPlacementModeShooter = false;
+        
+        // Simulation state
+        let isSimulating = false;
+        let simBalls = [];
+        let splinePoints = [];
+        let splineCumulativeDist = [];
+        let totalPathLength = 0;
+        const ballDiameter = 44;
+        const ballSpacing = 36;
+        const colors = ['#ef4444', '#22c55e', '#3b82f6', '#eab308'];
+
+        // Preset curves definition
+        const presets = {
+            spiral_in: {
+                cx: 400, cy: 300, loops: 2.1, r1: 340, r2: 90
+            },
+            spiral_out: {
+                cx: 400, cy: 300, loops: 2.1, r1: 90, r2: 340
+            },
+            zigzag: {
+                cx: 400, cy: 300, loops: 3, r1: 150, r2: 50 // Reuse sliders for wave frequency/amp
+            },
+            infinity: {
+                cx: 400, cy: 300, loops: 1, r1: 300, r2: 150
+            }
+        };
+
+        let currentPreset = 'spiral_in';
+
+        // Populate level selector and load first level
+        window.addEventListener('DOMContentLoaded', () => {
+            const selector = document.getElementById('level-selector');
+            if (selector && window.LEVELS && window.LEVELS.length > 0) {
+                window.LEVELS.forEach((lvl, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.innerText = `Level ${idx + 1}: ${lvl.name || 'Unnamed'}`;
+                    selector.appendChild(opt);
+                });
+                loadLevelFromList(0);
+            } else {
+                applyPreset('spiral_in');
+            }
+        });
+
+        function loadLevelFromList(index) {
+            const lvl = window.LEVELS[index];
+            if (!lvl) return;
+            
+            shooter = { ...lvl.shooter };
+            
+            controlPoints = [];
+            for (let i = 0; i < lvl.points.length; i += 2) {
+                controlPoints.push({ x: lvl.points[i], y: lvl.points[i + 1] });
+            }
+            
+            updateSpline();
+            draw();
+            exportCode();
+        }
+
+        function applyPreset(name) {
+            currentPreset = name;
+            const p = presets[name];
+            
+            // Set slider values
+            document.getElementById('param-cx').value = p.cx;
+            document.getElementById('param-cy').value = p.cy;
+            document.getElementById('param-loops').value = p.loops;
+            document.getElementById('param-r1').value = p.r1;
+            document.getElementById('param-r2').value = p.r2;
+
+            regenerateCurve();
+        }
+
+        function regenerateCurve() {
+            const cx = parseInt(document.getElementById('param-cx').value);
+            const cy = parseInt(document.getElementById('param-cy').value);
+            const loops = parseFloat(document.getElementById('param-loops').value);
+            const r1 = parseInt(document.getElementById('param-r1').value);
+            const r2 = parseInt(document.getElementById('param-r2').value);
+
+            // Update value readouts
+            document.getElementById('val-cx').innerText = cx;
+            document.getElementById('val-cy').innerText = cy;
+            document.getElementById('val-loops').innerText = loops.toFixed(1);
+            document.getElementById('val-r1').innerText = r1;
+            document.getElementById('val-r2').innerText = r2;
+
+            controlPoints = [];
+
+            if (currentPreset === 'spiral_in' || currentPreset === 'spiral_out') {
+                // Generate Archimedean Spiral points
+                const totalAngle = loops * Math.PI * 2;
+                const steps = 18;
+                for (let i = 0; i <= steps; i++) {
+                    const ratio = i / steps;
+                    const theta = ratio * totalAngle;
+                    
+                    let radius;
+                    if (currentPreset === 'spiral_in') {
+                        radius = r1 - (r1 - r2) * ratio;
+                    } else {
+                        radius = r1 + (r2 - r1) * ratio;
+                    }
+                    
+                    const x = cx + Math.cos(theta) * radius;
+                    const y = cy + Math.sin(theta) * radius;
+                    controlPoints.push({ x: Math.round(x), y: Math.round(y) });
+                }
+            } 
+            else if (currentPreset === 'zigzag') {
+                // Generate Zig-zag wave curves down the screen
+                const steps = 15;
+                const amplitude = r1; // Recycled variable
+                const periods = loops;
+                for (let i = 0; i <= steps; i++) {
+                    const ratio = i / steps;
+                    const y = 80 + ratio * 440;
+                    const x = cx + Math.sin(ratio * Math.PI * 2 * periods) * amplitude;
+                    controlPoints.push({ x: Math.round(x), y: Math.round(y) });
+                }
+            } 
+            else if (currentPreset === 'infinity') {
+                // Generate Figure Eight / Infinity curve points
+                const steps = 24;
+                const a = r1; // Recycled variable
+                for (let i = 0; i <= steps; i++) {
+                    const ratio = i / steps;
+                    const t = ratio * Math.PI * 2;
+                    // Lemniscate of Bernoulli equations
+                    const denom = 1 + Math.sin(t) * Math.sin(t);
+                    const x = cx + (a * Math.cos(t)) / denom;
+                    const y = cy + (a * Math.sin(t) * Math.cos(t)) / denom;
+                    controlPoints.push({ x: Math.round(x), y: Math.round(y) });
+                }
+            }
+
+            // Recenter shooter relative to first/last points so it's not blocked
+            updateSpline();
+            draw();
+            exportCode();
+        }
+
+        // Catmull-Rom math helper
+        function getCatmullRomPoint(p0, p1, p2, p3, t) {
+            const t2 = t * t;
+            const t3 = t2 * t;
+            return {
+                x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+                y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+            };
+        }
+
+        function updateSpline() {
+            if (controlPoints.length < 2) {
+                splinePoints = [];
+                totalPathLength = 0;
+                return;
+            }
+
+            // Extrapolate endpoints
+            const pts = [
+                { x: controlPoints[0].x * 2 - controlPoints[1].x, y: controlPoints[0].y * 2 - controlPoints[1].y },
+                ...controlPoints,
+                { x: controlPoints[controlPoints.length - 1].x * 2 - controlPoints[controlPoints.length - 2].x, y: controlPoints[controlPoints.length - 1].y * 2 - controlPoints[controlPoints.length - 2].y }
+            ];
+
+            splinePoints = [];
+            const segments = 30; // High resolution sampling
+
+            for (let i = 1; i < pts.length - 2; i++) {
+                const p0 = pts[i - 1];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[i + 2];
+                for (let j = 0; j <= segments; j++) {
+                    const t = j / segments;
+                    if (j === 0 && splinePoints.length > 0) continue;
+                    splinePoints.push(getCatmullRomPoint(p0, p1, p2, p3, t));
+                }
+            }
+
+            // Calculate cumulative distance parameterization for constant speed simulation
+            splineCumulativeDist = [0];
+            totalPathLength = 0;
+            for (let i = 1; i < splinePoints.length; i++) {
+                const dX = splinePoints[i].x - splinePoints[i - 1].x;
+                const dY = splinePoints[i].y - splinePoints[i - 1].y;
+                const len = Math.sqrt(dX * dX + dY * dY);
+                totalPathLength += len;
+                splineCumulativeDist.push(totalPathLength);
+            }
+        }
+
+        // Get coordinates at a specific path distance
+        function getPointAtDistance(d) {
+            if (d <= 0) return splinePoints[0];
+            if (d >= totalPathLength) return splinePoints[splinePoints.length - 1];
+
+            // Binary search in cumulative distances
+            let low = 0;
+            let high = splineCumulativeDist.length - 1;
+            while (low < high - 1) {
+                const mid = Math.floor((low + high) / 2);
+                if (splineCumulativeDist[mid] < d) {
+                    low = mid;
+                } else {
+                    high = mid;
+                }
+            }
+
+            const d0 = splineCumulativeDist[low];
+            const d1 = splineCumulativeDist[high];
+            const ratio = (d - d0) / (d1 - d0);
+            
+            const p0 = splinePoints[low];
+            const p1 = splinePoints[high];
+
+            return {
+                x: p0.x + (p1.x - p0.x) * ratio,
+                y: p0.y + (p1.y - p0.y) * ratio
+            };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid pattern (Deluxe style)
+            ctx.strokeStyle = '#1e2430';
+            ctx.lineWidth = 1;
+            for (let x = 40; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 40; y < canvas.height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw path width buffer (semi-transparent grey overlay)
+            if (splinePoints.length > 1) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.lineWidth = ballDiameter;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(splinePoints[0].x, splinePoints[0].y);
+                for (let i = 1; i < splinePoints.length; i++) {
+                    ctx.lineTo(splinePoints[i].x, splinePoints[i].y);
+                }
+                ctx.stroke();
+
+                // Draw central path groove line
+                ctx.strokeStyle = '#5a6b82';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(splinePoints[0].x, splinePoints[0].y);
+                for (let i = 1; i < splinePoints.length; i++) {
+                    ctx.lineTo(splinePoints[i].x, splinePoints[i].y);
+                }
+                ctx.stroke();
+            }
+
+            // Draw start portal (Green glow)
+            if (controlPoints.length > 0) {
+                const start = controlPoints[0];
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#22c55e';
+                ctx.fillStyle = '#14532d';
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(start.x, start.y, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+
+            // Draw danger portal skull (Red glow)
+            if (controlPoints.length > 1) {
+                const end = controlPoints[controlPoints.length - 1];
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ef4444';
+                ctx.fillStyle = '#7f1d1d';
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(end.x, end.y, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+
+            // Draw shooter (Frog)
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#eab308';
+            ctx.fillStyle = '#854d0e';
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(shooter.x, shooter.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Draw direction indicator for frog
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(shooter.x, shooter.y);
+            ctx.lineTo(shooter.x, shooter.y - 100);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
+
+            // Draw warning radius circle around shooter to check collision distance
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.15)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(shooter.x, shooter.y, 65, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw control point handles
+            controlPoints.forEach((pt, idx) => {
+                let color = varStyle('--accent-blue');
+                if (idx === 0) color = varStyle('--accent-green');
+                else if (idx === controlPoints.length - 1) color = varStyle('--accent-red');
+
+                ctx.fillStyle = color;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw label numbers
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(idx + 1, pt.x, pt.y);
+            });
+
+            // Draw simulation balls
+            if (isSimulating) {
+                simBalls.forEach((b) => {
+                    const pos = getPointAtDistance(b.d);
+                    ctx.fillStyle = b.color;
+                    ctx.strokeStyle = '#12141a';
+                    ctx.lineWidth = 2;
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = b.color;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Helper to grab CSS color variables
+        function varStyle(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // Export coordinates array for levels.js
+        function exportCode() {
+            let ptsArr = [];
+            controlPoints.forEach(p => {
+                ptsArr.push(p.x, p.y);
+            });
+            const pointsString = ptsArr.join(', ');
+            
+            const configCode = `{
+    shooter: { x: ${shooter.x}, y: ${shooter.y} },
+    points: [
+        ${pointsString}
+    ]
+}`;
+            document.getElementById('configOutput').value = configCode;
+        }
+
+        function copyConfig() {
+            const textarea = document.getElementById('configOutput');
+            textarea.select();
+            document.execCommand('copy');
+            alert('Level configuration copied to clipboard! You can paste it into levels.js');
+        }
+
+        function clearPoints() {
+            controlPoints = [];
+            updateSpline();
+            draw();
+            exportCode();
+        }
+
+        // Shooter positioning actions
+        function moveShooterMode() {
+            isPlacementModeShooter = true;
+            alert('Click anywhere on the canvas to place the frog shooter.');
+        }
+
+        function resetShooter() {
+            shooter = { x: 400, y: 300 };
+            draw();
+            exportCode();
+        }
+
+        // Mouse interaction logic
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (e.button === 2) {
+                // Right click: delete point
+                e.preventDefault();
+                const hitIdx = findClickedPoint(mouseX, mouseY);
+                if (hitIdx !== -1) {
+                    controlPoints.splice(hitIdx, 1);
+                    updateSpline();
+                    draw();
+                    exportCode();
+                }
+                return;
+            }
+
+            // Left click:
+            if (isPlacementModeShooter) {
+                shooter = { x: Math.round(mouseX), y: Math.round(mouseY) };
+                isPlacementModeShooter = false;
+                draw();
+                exportCode();
+                return;
+            }
+
+            // Check if clicked near shooter
+            const distShooter = Math.sqrt((mouseX - shooter.x) ** 2 + (mouseY - shooter.y) ** 2);
+            if (distShooter < 20) {
+                isDraggingShooter = true;
+                return;
+            }
+
+            // Check if clicked near a control point
+            const hitIdx = findClickedPoint(mouseX, mouseY);
+            if (hitIdx !== -1) {
+                selectedPointIndex = hitIdx;
+            } else {
+                // Clicked on empty space: Add a new point at click location
+                controlPoints.push({ x: Math.round(mouseX), y: Math.round(mouseY) });
+                updateSpline();
+                draw();
+                exportCode();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (selectedPointIndex === -1 && !isDraggingShooter) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (isDraggingShooter) {
+                shooter.x = Math.max(20, Math.min(780, Math.round(mouseX)));
+                shooter.y = Math.max(20, Math.min(580, Math.round(mouseY)));
+            } else if (selectedPointIndex !== -1) {
+                controlPoints[selectedPointIndex].x = Math.max(0, Math.min(800, Math.round(mouseX)));
+                controlPoints[selectedPointIndex].y = Math.max(0, Math.min(600, Math.round(mouseY)));
+                updateSpline();
+            }
+
+            draw();
+            exportCode();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            selectedPointIndex = -1;
+            isDraggingShooter = false;
+        });
+
+        // Prevent right click context menu on canvas
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        function findClickedPoint(x, y) {
+            for (let i = 0; i < controlPoints.length; i++) {
+                const pt = controlPoints[i];
+                const dist = Math.sqrt((x - pt.x) ** 2 + (y - pt.y) ** 2);
+                if (dist < 10) return i;
+            }
+            return -1;
+        }
+
+        // Live simulation animation loop
+        let lastTime = 0;
+        function toggleSimulation() {
+            if (isSimulating) {
+                isSimulating = false;
+                document.getElementById('btn-simulate').innerText = 'Play Simulation';
+                document.getElementById('btn-simulate').className = 'btn btn-primary';
+                simBalls = [];
+                draw();
+            } else {
+                if (controlPoints.length < 3) {
+                    alert('Please add at least 3 points to play simulation!');
+                    return;
+                }
+                isSimulating = true;
+                document.getElementById('btn-simulate').innerText = 'Stop Simulation';
+                document.getElementById('btn-simulate').className = 'btn';
+                simBalls = [];
+                
+                // Spawn initial rolling ball snake
+                const numBalls = 15;
+                for (let i = 0; i < numBalls; i++) {
+                    simBalls.push({
+                        d: -i * ballSpacing, // Spawn offsets
+                        color: colors[i % colors.length]
+                    });
+                }
+                
+                lastTime = performance.now();
+                requestAnimationFrame(simulationLoop);
+            }
+        }
+
+        function simulationLoop(timestamp) {
+            if (!isSimulating) return;
+
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            const simSpeed = 110; // Speed in pixels per second
+
+            // Move balls forward
+            simBalls.forEach((b) => {
+                b.d += simSpeed * dt;
+                // If a ball wraps around and falls off the end of path, recycle it to start
+                if (b.d > totalPathLength) {
+                    b.d = -ballSpacing;
+                }
+            });
+
+            draw();
+            requestAnimationFrame(simulationLoop);
+        }
+    </script>
+</body>
+</html>

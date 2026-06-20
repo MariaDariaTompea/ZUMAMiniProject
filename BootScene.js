@@ -7,10 +7,67 @@ class BootScene extends Phaser.Scene {
         // We will generate placeholder graphics here instead of loading external images
         // so you can run the game immediately without needing to download assets.
         
-        // Wait until we actually generate the map using generator.html!
-        // We will load from mapsai/map_X.png
         const levelNum = window.currentLevelIndex + 1;
-        this.load.image('map', `assets/mapsai/map_${levelNum}.png`);
+        const bgKey = `map_bg_${levelNum}`;
+        const fgKey = `map_fg_${levelNum}`;
+
+        // Load the background (back) and foreground overlay (front) if they exist
+        this.load.image(bgKey, `assets/maps/level${levelNum}/back.png`);
+        this.load.image(fgKey, `assets/maps/level${levelNum}/front.png`);
+
+        // Procedural fallback if the background image is missing
+        this.load.on('loaderror', (fileObj) => {
+            if (fileObj.key === bgKey) {
+                console.warn(`Map background image assets/maps/level${levelNum}/back.png not found. Generating a procedural fallback background!`);
+                const levelData = window.LEVELS[window.currentLevelIndex];
+                if (levelData) {
+                    const fallbackGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+                    
+                    // Dark forest/temple style background
+                    fallbackGraphics.fillStyle(0x131a11, 1);
+                    fallbackGraphics.fillRect(0, 0, 800, 600);
+                    
+                    // Subtle background grid lines
+                    fallbackGraphics.lineStyle(1, 0x1f2b1c, 1);
+                    for (let x = 0; x < 800; x += 40) {
+                        fallbackGraphics.lineBetween(x, 0, x, 600);
+                    }
+                    for (let y = 0; y < 600; y += 40) {
+                        fallbackGraphics.lineBetween(0, y, 800, y);
+                    }
+                    
+                    // Draw outer brown stone track outline
+                    const path = new Phaser.Curves.Spline(levelData.points);
+                    fallbackGraphics.lineStyle(44, 0x2e261f, 1);
+                    path.draw(fallbackGraphics, 256);
+                    
+                    // Draw inner sand track fill
+                    fallbackGraphics.lineStyle(34, 0x473d33, 1);
+                    path.draw(fallbackGraphics, 256);
+
+                    // Draw inner track groove line
+                    fallbackGraphics.lineStyle(4, 0x1a1512, 1);
+                    path.draw(fallbackGraphics, 256);
+                    
+                    // Draw Spawn Portal (Green)
+                    fallbackGraphics.fillStyle(0x00cc44, 0.8);
+                    fallbackGraphics.fillCircle(levelData.points[0], levelData.points[1], 22);
+                    fallbackGraphics.lineStyle(3, 0xffffff, 0.9);
+                    fallbackGraphics.strokeCircle(levelData.points[0], levelData.points[1], 22);
+                    
+                    // Draw Danger Skull Portal (Red)
+                    const endX = levelData.points[levelData.points.length - 2];
+                    const endY = levelData.points[levelData.points.length - 1];
+                    fallbackGraphics.fillStyle(0xcc1111, 0.8);
+                    fallbackGraphics.fillCircle(endX, endY, 22);
+                    fallbackGraphics.lineStyle(3, 0xffffff, 0.9);
+                    fallbackGraphics.strokeCircle(endX, endY, 22);
+                    
+                    fallbackGraphics.generateTexture(bgKey, 800, 600);
+                    fallbackGraphics.destroy();
+                }
+            }
+        });
 
         // 1. Generate Ball Graphics
         const ballColors = [

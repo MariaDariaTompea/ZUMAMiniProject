@@ -195,22 +195,42 @@ class Chain {
         }
     }
 
-    insertBall(colorKey, sIndex, bIndex) {
+    insertBall(colorKey, sIndex, bIndex, projectile) {
         const seg = this.segments[sIndex];
         const hitBall = seg.balls[bIndex];
+        if (!hitBall) return;
         
-        // Insert at the hit ball's distance
-        const newDist = hitBall.distance;
-        const newBall = new Ball(this.scene, this.path, newDist, colorKey);
+        let insertIndex = bIndex;
+        if (projectile) {
+            const pathLength = this.path.getLength();
+            const u = hitBall.distance / pathLength;
+            const tangent = this.path.getTangentAt(u);
+            if (tangent) {
+                const vecX = projectile.x - hitBall.x;
+                const vecY = projectile.y - hitBall.y;
+                const dot = vecX * tangent.x + vecY * tangent.y;
+                if (dot < 0) {
+                    insertIndex = bIndex + 1;
+                }
+            }
+        }
         
-        seg.balls.splice(bIndex, 0, newBall);
+        const newBall = new Ball(this.scene, this.path, hitBall.distance, colorKey);
+        seg.balls.splice(insertIndex, 0, newBall);
+        
+        // Recalculate distances for all balls in the segment starting from index 1 relative to the head
+        // The head (index 0) keeps its distance.
+        // Every ball j after the head has its distance set to seg.balls[j-1].distance - this.ballSpacing
+        for (let j = 1; j < seg.balls.length; j++) {
+            seg.balls[j].distance = seg.balls[j - 1].distance - this.ballSpacing;
+        }
         
         // Recalculate positions immediately for smooth insertion
         for (let j = 0; j < seg.balls.length; j++) {
             seg.balls[j].updatePosition();
         }
 
-        const matchFound = this.checkMatches(seg, bIndex, false);
+        const matchFound = this.checkMatches(seg, insertIndex, false);
         if (!matchFound && this.scene.resetCombo) {
             this.scene.resetCombo();
         }

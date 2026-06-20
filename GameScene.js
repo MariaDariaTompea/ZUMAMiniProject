@@ -4,21 +4,27 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // Draw the background
-        // Add the custom map background
-        this.add.image(400, 300, 'map').setDisplaySize(800, 600);
+        const levelNum = window.currentLevelIndex + 1;
+        const bgKey = `map_bg_${levelNum}`;
+        const fgKey = `map_fg_${levelNum}`;
 
-        // Add the shooter sprite first so createPath can set its position
-        this.shooter = this.add.sprite(300, 235, 'shooter');
+        // Draw the background (depth 0)
+        this.add.image(400, 300, bgKey).setDisplaySize(800, 600).setDepth(0);
+
+        // Add the shooter sprite first so createPath can set its position (depth 4)
+        this.shooter = this.add.sprite(300, 235, 'shooter').setDepth(4);
 
         // Setup the path
         this.createPath();
+
+        // Initialize physics groups first so that spawned balls can join chainGroup
+        this.chainGroup = this.physics.add.group();
+        this.projectilesGroup = this.physics.add.group();
 
         // Initialize the ball chain
         this.chain = new Chain(this, this.path);
         
         // Firing Mechanics
-        this.projectiles = [];
         this.colors = ['ball_red', 'ball_green', 'ball_blue', 'ball_yellow'];
         
         // Disable context menu for right-click
@@ -67,6 +73,20 @@ class GameScene extends Phaser.Scene {
                 this.fireBall(pointer);
             }
         });
+
+        // Setup physics overlap callback
+        this.physics.add.overlap(
+            this.projectilesGroup,
+            this.chainGroup,
+            this.handleProjectileHit,
+            null,
+            this
+        );
+
+        // Draw the foreground bridges/tunnels overlay (depth 5) if it exists
+        if (this.textures.exists(fgKey)) {
+            this.add.image(400, 300, fgKey).setDisplaySize(800, 600).setDepth(5);
+        }
     }
 
     getAvailableColor() {
@@ -221,13 +241,15 @@ class GameScene extends Phaser.Scene {
         if (this.currentBallSprite) this.currentBallSprite.destroy();
         if (this.nextBallSprite) this.nextBallSprite.destroy();
         
-        // Mouth ball
+        // Mouth ball (depth 4)
         this.currentBallSprite = this.add.sprite(this.shooter.x, this.shooter.y, this.currentBallColor);
         this.currentBallSprite.setScale(0.8);
+        this.currentBallSprite.setDepth(4);
         
-        // Head ball
+        // Head ball (depth 4)
         this.nextBallSprite = this.add.sprite(this.shooter.x, this.shooter.y, this.nextBallColor);
         this.nextBallSprite.setScale(0.4);
+        this.nextBallSprite.setDepth(4);
         
         this.updateBallPositions();
     }
@@ -250,23 +272,58 @@ class GameScene extends Phaser.Scene {
     }
 
     fireBall(pointer) {
+        if (!this.currentBallSprite) return;
+
         this.comboMultiplier = 1; // Reset cascade combo multiplier for this shot
         
         const angle = this.shooter.rotation;
-        const speed = 800; // Pixels per second
+        const speed = 950; // Snappy, satisfying Zuma projectile speed!
         
         // Start projectile from the mouth's position
         const startX = this.currentBallSprite.x;
         const startY = this.currentBallSprite.y;
         
-        const projectile = this.add.sprite(startX, startY, this.currentBallColor);
+        // Create projectile as physics sprite (depth 3)
+        const projectile = this.projectilesGroup.create(startX, startY, this.currentBallColor);
         projectile.colorKey = this.currentBallColor;
-        projectile.vx = Math.cos(angle) * speed;
-        projectile.vy = Math.sin(angle) * speed;
+        projectile.setDepth(3);
         
-        this.projectiles.push(projectile);
+        if (projectile.body) {
+            // Set circle body radius 14, offset to center (22 - 14 = 8)
+            projectile.body.setCircle(14, 8, 8);
+            
+            // Set velocity
+            projectile.body.setVelocity(
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed
+            );
+        }
         
         this.loadNextBall();
+    }
+
+    handleProjectileHit(projectile, chainBall) {
+        if (!projectile.active || !projectile.body || !projectile.body.enable) return;
+        if (!this.chain || this.chain.state !== 'PLAYING') return;
+        
+        // Disable projectile body immediately to prevent multiple overlaps in the same frame
+        projectile.body.enable = false;
+        
+        // Find which segment and which index this chainBall belongs to
+        let found = false;
+        for (let s = 0; s < this.chain.segments.length; s++) {
+            const seg = this.chain.segments[s];
+            const bIndex = seg.balls.indexOf(chainBall);
+            if (bIndex !== -1) {
+                // Insert the new ball into the chain
+                this.chain.insertBall(projectile.colorKey, s, bIndex, projectile);
+                found = true;
+                break;
+            }
+        }
+        
+        // Destroy the projectile
+        projectile.destroy();
     }
 
     createPath() {
@@ -294,41 +351,13 @@ class GameScene extends Phaser.Scene {
             this.chain.update(time, delta);
         }
 
-        const dt = delta / 1000;
-        
-        // Update projectiles and check collisions
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            const p = this.projectiles[i];
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            
-            // Check if off screen
-            if (p.x < 0 || p.x > 800 || p.y < 0 || p.y > 600) {
-                p.destroy();
-                this.projectiles.splice(i, 1);
-                continue;
-            }
-            
-            // Collision detection with the chain
-            if (this.chain && this.chain.state === 'PLAYING') {
-                let hit = false;
-                for (let s = 0; s < this.chain.segments.length; s++) {
-                    const seg = this.chain.segments[s];
-                    for (let j = 0; j < seg.balls.length; j++) {
-                        const cb = seg.balls[j];
-                        const dist = Phaser.Math.Distance.Between(p.x, p.y, cb.x, cb.y);
-                        
-                        if (dist <= 40) { // Hit!
-                            this.chain.insertBall(p.colorKey, s, j);
-                            p.destroy();
-                            this.projectiles.splice(i, 1);
-                            hit = true;
-                            break;
-                        }
-                    }
-                    if (hit) break;
+        // Clean up out of bounds projectiles
+        if (this.projectilesGroup) {
+            this.projectilesGroup.getChildren().forEach((p) => {
+                if (p.x < -20 || p.x > 820 || p.y < -20 || p.y > 620) {
+                    p.destroy();
                 }
-            }
+            });
         }
 
         // Ensure frog doesn't hold colors that no longer exist on the board
@@ -377,8 +406,9 @@ class GameScene extends Phaser.Scene {
                 }).setOrigin(0.5);
                 
                 // Clear any remaining projectiles
-                this.projectiles.forEach(p => p.destroy());
-                this.projectiles = [];
+                if (this.projectilesGroup) {
+                    this.projectilesGroup.clear(true, true);
+                }
                 
                 // Wait for click to restart
                 this.input.once('pointerdown', () => {
@@ -387,8 +417,29 @@ class GameScene extends Phaser.Scene {
             }
         }
 
-        // Display You Win screen
-        if (this.zumaMode && this.chain && this.chain.state !== 'GAME_OVER' && this.chain.segments.length === 0) {
+        // Count visible balls on the board
+        let visibleBallsCount = 0;
+        if (this.chain && this.chain.segments) {
+            for (let s = 0; s < this.chain.segments.length; s++) {
+                const seg = this.chain.segments[s];
+                for (let j = 0; j < seg.balls.length; j++) {
+                    if (seg.balls[j].visible) {
+                        visibleBallsCount++;
+                    }
+                }
+            }
+        }
+
+        // Display You Win screen when all visible balls are cleared in Zuma mode
+        if (this.zumaMode && this.chain && this.chain.state !== 'GAME_OVER' && visibleBallsCount === 0) {
+            // Clean up any remaining hidden balls in the entry portal
+            if (this.chain.segments.length > 0) {
+                this.chain.segments.forEach(seg => {
+                    seg.balls.forEach(ball => ball.destroy());
+                });
+                this.chain.segments = [];
+            }
+
             if (!this.winText) {
                 this.winText = this.add.text(400, 300, 'ZUMA COMPLETED!\nYOU WIN!', {
                     fontSize: '48px',
@@ -412,7 +463,7 @@ class GameScene extends Phaser.Scene {
                         this.scene.start('BootScene'); // Must reboot to load the new map image
                     });
                 } else {
-                    this.winText.setText("CONGRATULATIONS!\nYOU BEAT ALL 10 LEVELS!");
+                    this.winText.setText("CONGRATULATIONS!\nYOU BEAT ALL " + window.LEVELS.length + " LEVELS!");
                     this.add.text(400, 400, 'Click to restart from Level 1', {
                         fontSize: '32px',
                         fontFamily: 'Arial',

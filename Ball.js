@@ -8,6 +8,21 @@ class Ball extends Phaser.GameObjects.Sprite {
         
         // Add to scene
         scene.add.existing(this);
+        this.setDepth(2);
+        
+        // Add physics body
+        scene.physics.add.existing(this);
+        if (this.body) {
+            // Set circle body radius 18 (diameter 36 matching ballSpacing)
+            // Offset is (44/2) - 18 = 4 to center it on the 44x44 sprite
+            this.body.setCircle(18, 4, 4);
+            this.body.setImmovable(true);
+        }
+        
+        // Add to the scene's chainGroup if it exists
+        if (scene.chainGroup) {
+            scene.chainGroup.add(this);
+        }
         
         // Initial position
         this.updatePosition();
@@ -20,6 +35,7 @@ class Ball extends Phaser.GameObjects.Sprite {
         // If a ball is pushed backwards past the start (into the hole), hide it
         if (u < 0) {
             this.setVisible(false);
+            if (this.body) this.body.enable = false;
             return;
         } else if (u > 1) {
             u = 1;
@@ -30,6 +46,7 @@ class Ball extends Phaser.GameObjects.Sprite {
             this.x = point.x;
             this.y = point.y;
             this.setVisible(true);
+            if (this.body) this.body.enable = true;
         }
     }
 
@@ -60,6 +77,7 @@ class Ball extends Phaser.GameObjects.Sprite {
         });
 
         this.setVisible(false);
+        if (this.body) this.body.enable = false;
         this.destroy();
     }
 }
