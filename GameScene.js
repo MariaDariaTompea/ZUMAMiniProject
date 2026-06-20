@@ -240,12 +240,14 @@ class GameScene extends Phaser.Scene {
         
         // Mouth ball (depth 4)
         this.currentBallSprite = this.add.sprite(this.shooter.x, this.shooter.y, this.currentBallColor);
-        this.currentBallSprite.setScale(0.8);
+        const scaleCurrent = (44 / this.currentBallSprite.width) * 0.8;
+        this.currentBallSprite.setScale(scaleCurrent);
         this.currentBallSprite.setDepth(4);
         
         // Head ball (depth 4)
         this.nextBallSprite = this.add.sprite(this.shooter.x, this.shooter.y, this.nextBallColor);
-        this.nextBallSprite.setScale(0.4);
+        const scaleNext = (44 / this.nextBallSprite.width) * 0.4;
+        this.nextBallSprite.setScale(scaleNext);
         this.nextBallSprite.setDepth(4);
         
         this.updateBallPositions();
@@ -285,9 +287,15 @@ class GameScene extends Phaser.Scene {
         projectile.colorKey = this.currentBallColor;
         projectile.setDepth(3);
         
+        // Auto scale based on texture resolution
+        const projScale = 44 / projectile.width;
+        projectile.setScale(projScale);
+        
         if (projectile.body) {
             // Set circle body radius 14, offset to center (22 - 14 = 8)
-            projectile.body.setCircle(14, 8, 8);
+            // Scale body size by factor to match larger textures in physics space
+            const factor = projectile.width / 44;
+            projectile.body.setCircle(14 * factor, 8 * factor, 8 * factor);
             
             // Set velocity
             projectile.body.setVelocity(

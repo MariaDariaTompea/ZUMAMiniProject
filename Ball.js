@@ -10,12 +10,17 @@ class Ball extends Phaser.GameObjects.Sprite {
         scene.add.existing(this);
         this.setDepth(2);
         
+        // Auto scale based on texture resolution
+        const scale = 44 / this.width;
+        this.setScale(scale);
+        
         // Add physics body
         scene.physics.add.existing(this);
         if (this.body) {
             // Set circle body radius 18 (diameter 36 matching ballSpacing)
-            // Offset is (44/2) - 18 = 4 to center it on the 44x44 sprite
-            this.body.setCircle(18, 4, 4);
+            // Scale body size by factor to match larger textures in physics space
+            const factor = this.width / 44;
+            this.body.setCircle(18 * factor, 4 * factor, 4 * factor);
             this.body.setImmovable(true);
         }
         
