@@ -104,6 +104,8 @@ Here is a look at our development progression and testing phases:
 ![Custom Art & Layering](photos/Screenshot%202026-06-20%20193846.png)
 *Integrating high-quality custom backgrounds (`back.png`) and bridge overlays (`front.png`) so balls roll underneath.*
 
+- **High-Resolution Custom Ball Assets**: Integrated custom high-resolution (**176 × 176 pixels**) ball designs for the red and green balls (`red_normal.png` and `green_normal.png`). These are automatically downscaled to 44px in-game to preserve details on high-DPI displays.
+
 ---
 
 ## 🕹️ How to Play & Design Locally
