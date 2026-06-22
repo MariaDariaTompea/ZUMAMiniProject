@@ -17,6 +17,61 @@ class GameScene extends Phaser.Scene {
         // Setup the path
         this.createPath();
 
+        // Draw the sliding track or portals depending on type
+        if (this.levelType === 'sliding' && this.shooterTrack) {
+            const p1 = this.shooterTrack.p1;
+            const p2 = this.shooterTrack.p2;
+            const trackGraphics = this.add.graphics().setDepth(1);
+            
+            // Draw outer dark groove
+            trackGraphics.lineStyle(10, 0x2a2a2a, 0.8);
+            trackGraphics.lineBetween(p1.x, p1.y, p2.x, p2.y);
+            
+            // Draw inner metallic/chrome line
+            trackGraphics.lineStyle(4, 0xd0d0d0, 1.0);
+            trackGraphics.lineBetween(p1.x, p1.y, p2.x, p2.y);
+            
+            // Draw small metallic caps/stops at endpoints
+            trackGraphics.fillStyle(0x888888, 1.0);
+            trackGraphics.fillCircle(p1.x, p1.y, 8);
+            trackGraphics.fillCircle(p2.x, p2.y, 8);
+            trackGraphics.fillStyle(0xd0d0d0, 1.0);
+            trackGraphics.fillCircle(p1.x, p1.y, 4);
+            trackGraphics.fillCircle(p2.x, p2.y, 4);
+        } else if (this.levelType === 'jumping' && this.shooterPositions) {
+            if (!this.textures.exists('portal')) {
+                const ptG = this.make.graphics({ x: 0, y: 0, add: false });
+                ptG.lineStyle(4, 0xffff00, 1.0);
+                ptG.strokeCircle(24, 24, 20);
+                ptG.fillStyle(0xffff00, 0.3);
+                ptG.fillCircle(24, 24, 16);
+                ptG.generateTexture('portal', 48, 48);
+                ptG.destroy();
+            }
+            
+            this.portalsGroup = this.add.group();
+            this.shooterPositions.forEach((pos, idx) => {
+                const portal = this.add.sprite(pos.x, pos.y, 'portal');
+                portal.setDepth(2);
+                portal.setData('index', idx);
+                portal.setData('position', pos);
+                
+                this.tweens.add({
+                    targets: portal,
+                    scale: 1.25,
+                    alpha: 0.7,
+                    duration: 800,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+                
+                portal.setInteractive({ useHandCursor: true });
+                this.portalsGroup.add(portal);
+            });
+            this.updatePortals();
+        }
+
         // Initialize physics groups first so that spawned balls can join chainGroup
         this.chainGroup = this.physics.add.group();
         this.projectilesGroup = this.physics.add.group();
@@ -60,17 +115,51 @@ class GameScene extends Phaser.Scene {
         
         this.initBalls();
         
-        // Pointer tracking for shooter rotation
+        // Pointer tracking for shooter position (sliding) and rotation
         this.input.on('pointermove', (pointer) => {
+            if (this.levelType === 'sliding' && this.shooterTrack) {
+                const A = this.shooterTrack.p1;
+                const B = this.shooterTrack.p2;
+                
+                const vx = B.x - A.x;
+                const vy = B.y - A.y;
+                const lenSq = vx * vx + vy * vy;
+                
+                if (lenSq > 0) {
+                    const ux = pointer.x - A.x;
+                    const uy = pointer.y - A.y;
+                    let t = (ux * vx + uy * vy) / lenSq;
+                    t = Math.max(0, Math.min(1, t));
+                    
+                    const px = A.x + t * vx;
+                    const py = A.y + t * vy;
+                    
+                    this.shooter.setPosition(px, py);
+                }
+            }
+            
             const angle = Phaser.Math.Angle.Between(this.shooter.x, this.shooter.y, pointer.x, pointer.y);
             this.shooter.rotation = angle;
             this.updateBallPositions();
         });
 
-        // Fire or Swap on click
-        this.input.on('pointerdown', (pointer) => {
+        // Fire, Swap, or Jump on click
+        this.input.on('pointerdown', (pointer, currentlyOver) => {
             if (pointer.rightButtonDown()) {
                 this.swapBalls();
+                return;
+            }
+            
+            // Check if we clicked on a portal in jumping mode
+            let clickedPortal = null;
+            if (this.levelType === 'jumping' && currentlyOver && currentlyOver.length > 0) {
+                clickedPortal = currentlyOver.find(obj => obj.texture && obj.texture.key === 'portal');
+            }
+            
+            if (clickedPortal) {
+                const targetIdx = clickedPortal.getData('index');
+                const targetPos = clickedPortal.getData('position');
+                this.jumpToPosition(targetPos, targetIdx);
             } else if (this.currentBallSprite && this.chain.state === 'PLAYING') {
                 this.fireBall(pointer);
             }
@@ -339,7 +428,6 @@ class GameScene extends Phaser.Scene {
 
     createPath() {
         // Spline points tracing the stone path
-        // Starts at Green pearl (bottom right), loops around, ends at Red pearl
         // Load the level data from the levels.js array
         const levelData = window.LEVELS[window.currentLevelIndex];
         
@@ -348,13 +436,24 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Set shooter position
-        this.shooter.setPosition(levelData.shooter.x, levelData.shooter.y);
+        // Parse shooter type and layout parameters
+        this.levelType = levelData.type || 'stationary';
+        this.shooterTrack = levelData.shooterTrack;
+        this.shooterPositions = levelData.shooterPositions;
+
+        // Set initial shooter position
+        if (this.levelType === 'sliding' && this.shooterTrack) {
+            const p1 = this.shooterTrack.p1;
+            const p2 = this.shooterTrack.p2;
+            this.shooter.setPosition((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+        } else if (this.levelType === 'jumping' && this.shooterPositions && this.shooterPositions.length > 0) {
+            this.shooter.setPosition(this.shooterPositions[0].x, this.shooterPositions[0].y);
+        } else {
+            this.shooter.setPosition(levelData.shooter.x, levelData.shooter.y);
+        }
 
         // Spline points for the stone path
         this.path = new Phaser.Curves.Spline(levelData.points);
-
-        // We no longer draw it here because the user will paint it into the map images!
     }
 
     update(time, delta) {
@@ -486,5 +585,58 @@ class GameScene extends Phaser.Scene {
                 this.scene.pause();
             }
         }
+    }
+
+    createJumpEffect(x, y) {
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const dist = 10 + Math.random() * 20;
+            const px = x + Math.cos(angle) * dist;
+            const py = y + Math.sin(angle) * dist;
+            
+            const p = this.add.sprite(px, py, 'shard');
+            p.setDepth(6);
+            p.setTint(0xffff00);
+            p.setScale(1.5 + Math.random() * 1.5);
+            
+            const speed = 100 + Math.random() * 100;
+            this.tweens.add({
+                targets: p,
+                x: px + Math.cos(angle) * speed,
+                y: py + Math.sin(angle) * speed,
+                alpha: 0,
+                scale: 0.1,
+                duration: 500,
+                ease: 'Quad.easeOut',
+                onComplete: () => p.destroy()
+            });
+        }
+    }
+
+    jumpToPosition(targetPos, targetIdx) {
+        this.createJumpEffect(this.shooter.x, this.shooter.y);
+        this.shooter.setPosition(targetPos.x, targetPos.y);
+        
+        const pointer = this.input.activePointer;
+        const angle = Phaser.Math.Angle.Between(this.shooter.x, this.shooter.y, pointer.x, pointer.y);
+        this.shooter.rotation = angle;
+        
+        this.createJumpEffect(targetPos.x, targetPos.y);
+        this.updatePortals();
+        this.updateBallPositions();
+    }
+
+    updatePortals() {
+        if (!this.portalsGroup) return;
+        this.portalsGroup.getChildren().forEach(portal => {
+            const pos = portal.getData('position');
+            if (Phaser.Math.Distance.Between(this.shooter.x, this.shooter.y, pos.x, pos.y) < 5) {
+                portal.setVisible(false);
+                portal.disableInteractive();
+            } else {
+                portal.setVisible(true);
+                portal.setInteractive();
+            }
+        });
     }
 }
