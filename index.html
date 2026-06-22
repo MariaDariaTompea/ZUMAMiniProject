@@ -299,6 +299,19 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 </head>
 <body>
+    <div id="error-overlay" style="position: absolute; top: 0; left: 0; background: rgba(255,0,0,0.8); color: white; z-index: 9999; padding: 20px; display: none; font-family: monospace;"></div>
+    <script>
+        window.addEventListener('error', function(e) {
+            const overlay = document.getElementById('error-overlay');
+            overlay.style.display = 'block';
+            overlay.innerHTML += `<p>Error: ${e.message}<br>Line: ${e.lineno}<br>File: ${e.filename}</p>`;
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            const overlay = document.getElementById('error-overlay');
+            overlay.style.display = 'block';
+            overlay.innerHTML += `<p>Promise Error: ${e.reason}</p>`;
+        });
+    </script>
     <div id="game-wrapper">
         <!-- Status Bar Sitting Above Game -->
         <div id="game-header">
@@ -466,11 +479,11 @@
     </script>
 
     <!-- Game Scripts -->
-    <script src="levels.js?v=3"></script>
-    <script src="Ball.js?v=3"></script>
-    <script src="Chain.js?v=3"></script>
-    <script src="BootScene.js?v=3"></script>
-    <script src="GameScene.js?v=3"></script>
-    <script src="main.js?v=3"></script>
+    <script src="levels.js?v=6"></script>
+    <script src="Ball.js?v=6"></script>
+    <script src="Chain.js?v=6"></script>
+    <script src="BootScene.js?v=6"></script>
+    <script src="GameScene.js?v=6"></script>
+    <script src="main.js?v=6"></script>
 </body>
 </html>
