@@ -93,7 +93,9 @@ class GameScene extends Phaser.Scene {
         
         // Scoring and Combos
         this.score = window.playerScore || 0;
-        this.zumaScore = 1000;
+        this.levelScore = 0;
+        const levelData = window.LEVELS[window.currentLevelIndex];
+        this.zumaScore = (levelData && levelData.zumaScore) ? levelData.zumaScore : 1000;
         this.zumaMode = false;
         this.consecutiveMatches = 0;
         this.comboMultiplier = 1;
@@ -249,11 +251,12 @@ class GameScene extends Phaser.Scene {
         if (this.chain && this.chain.state === 'GAME_OVER') return;
         
         this.score += points;
+        this.levelScore += points;
         window.playerScore = this.score;
         this.updateHTMLUI();
         
         if (!this.zumaMode) {
-            if (this.score >= this.zumaScore) {
+            if (this.levelScore >= this.zumaScore) {
                 this.triggerZumaMode();
             }
         }
@@ -272,7 +275,7 @@ class GameScene extends Phaser.Scene {
 
         const barFill = document.getElementById('zuma-bar-fill');
         if (barFill) {
-            const progress = Math.min(this.score / this.zumaScore, 1);
+            const progress = Math.min(this.levelScore / this.zumaScore, 1);
             barFill.style.width = (progress * 100) + '%';
             
             if (!this.zumaMode) {
