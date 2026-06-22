@@ -20,12 +20,24 @@ class BootScene extends Phaser.Scene {
         this.load.image('ball_green', 'assets/balls/green_normal.png');
         this.load.image('ball_blue', 'assets/balls/blue_normal.png');
         this.load.image('ball_yellow', 'assets/balls/yellow_normal.png');
+        this.load.image('ball_orange', 'assets/balls/orange_normal.png');
+        this.load.image('ball_purple', 'assets/balls/purple_normal.png');
+        this.load.image('ball_white', 'assets/balls/white_normal.png');
+        this.load.image('ball_cyan', 'assets/balls/cyan_normal.png');
+        this.load.image('ball_pink', 'assets/balls/pink_normal.png');
+        this.load.image('ball_black', 'assets/balls/black_normal.png');
 
         const ballColors = [
             { key: 'ball_red', color: 0xff0000 },
             { key: 'ball_green', color: 0x00ff00 },
             { key: 'ball_blue', color: 0x0000ff },
-            { key: 'ball_yellow', color: 0xffff00 }
+            { key: 'ball_yellow', color: 0xffff00 },
+            { key: 'ball_orange', color: 0xff6600 },
+            { key: 'ball_purple', color: 0x9900ff },
+            { key: 'ball_white', color: 0xffffff },
+            { key: 'ball_cyan', color: 0x00ffff },
+            { key: 'ball_pink', color: 0xff66cc },
+            { key: 'ball_black', color: 0x111111 }
         ];
 
         // Procedural fallback if assets are missing

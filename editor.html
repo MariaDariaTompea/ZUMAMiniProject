@@ -288,6 +288,10 @@
                     <label>End Radius <span id="val-r2">80</span></label>
                     <input type="range" id="param-r2" min="20" max="300" value="80" oninput="regenerateCurve()">
                 </div>
+                <div class="range-container">
+                    <label>Path Nodes / Complexity <span id="val-nodes">18</span></label>
+                    <input type="range" id="param-nodes" min="8" max="50" step="1" value="18" oninput="regenerateCurve()">
+                </div>
             </div>
         </div>
 
@@ -350,16 +354,16 @@
         // Preset curves definition
         const presets = {
             spiral_in: {
-                cx: 400, cy: 300, loops: 2.1, r1: 340, r2: 90
+                cx: 400, cy: 300, loops: 2.1, r1: 340, r2: 90, steps: 18
             },
             spiral_out: {
-                cx: 400, cy: 300, loops: 2.1, r1: 90, r2: 340
+                cx: 400, cy: 300, loops: 2.1, r1: 90, r2: 340, steps: 18
             },
             zigzag: {
-                cx: 400, cy: 300, loops: 3, r1: 150, r2: 50 // Reuse sliders for wave frequency/amp
+                cx: 400, cy: 300, loops: 3, r1: 150, r2: 50, steps: 15
             },
             infinity: {
-                cx: 400, cy: 300, loops: 1, r1: 300, r2: 150
+                cx: 400, cy: 300, loops: 1, r1: 300, r2: 150, steps: 24
             }
         };
 
@@ -407,6 +411,7 @@
             document.getElementById('param-loops').value = p.loops;
             document.getElementById('param-r1').value = p.r1;
             document.getElementById('param-r2').value = p.r2;
+            document.getElementById('param-nodes').value = p.steps;
 
             regenerateCurve();
         }
@@ -417,6 +422,7 @@
             const loops = parseFloat(document.getElementById('param-loops').value);
             const r1 = parseInt(document.getElementById('param-r1').value);
             const r2 = parseInt(document.getElementById('param-r2').value);
+            const steps = parseInt(document.getElementById('param-nodes').value);
 
             // Update value readouts
             document.getElementById('val-cx').innerText = cx;
@@ -424,13 +430,13 @@
             document.getElementById('val-loops').innerText = loops.toFixed(1);
             document.getElementById('val-r1').innerText = r1;
             document.getElementById('val-r2').innerText = r2;
+            document.getElementById('val-nodes').innerText = steps;
 
             controlPoints = [];
 
             if (currentPreset === 'spiral_in' || currentPreset === 'spiral_out') {
                 // Generate Archimedean Spiral points
                 const totalAngle = loops * Math.PI * 2;
-                const steps = 18;
                 for (let i = 0; i <= steps; i++) {
                     const ratio = i / steps;
                     const theta = ratio * totalAngle;
@@ -449,7 +455,6 @@
             } 
             else if (currentPreset === 'zigzag') {
                 // Generate Zig-zag wave curves down the screen
-                const steps = 15;
                 const amplitude = r1; // Recycled variable
                 const periods = loops;
                 for (let i = 0; i <= steps; i++) {
@@ -461,7 +466,6 @@
             } 
             else if (currentPreset === 'infinity') {
                 // Generate Figure Eight / Infinity curve points
-                const steps = 24;
                 const a = r1; // Recycled variable
                 for (let i = 0; i <= steps; i++) {
                     const ratio = i / steps;

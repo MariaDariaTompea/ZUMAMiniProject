@@ -21,11 +21,17 @@ class GameScene extends Phaser.Scene {
         this.chainGroup = this.physics.add.group();
         this.projectilesGroup = this.physics.add.group();
 
+        // Firing Mechanics: dynamically configure active colors list based on the level
+        this.colors = ['ball_red', 'ball_green', 'ball_blue', 'ball_yellow'];
+        if (levelNum >= 8) this.colors.push('ball_orange');
+        if (levelNum >= 16) this.colors.push('ball_purple');
+        if (levelNum >= 22) this.colors.push('ball_white');
+        if (levelNum >= 31) this.colors.push('ball_cyan');
+        if (levelNum >= 41) this.colors.push('ball_pink');
+        if (levelNum >= 46) this.colors.push('ball_black');
+
         // Initialize the ball chain
         this.chain = new Chain(this, this.path);
-        
-        // Firing Mechanics
-        this.colors = ['ball_red', 'ball_green', 'ball_blue', 'ball_yellow'];
         
         // Disable context menu for right-click
         this.input.mouse.disableContextMenu();

@@ -3,7 +3,7 @@ class Chain {
         this.scene = scene;
         this.path = path;
         this.segments = []; // Array of { balls: [], state: 'NORMAL'|'STOPPED'|'PULLING' }
-        this.colors = ['ball_red', 'ball_green', 'ball_blue', 'ball_yellow'];
+        this.colors = scene.colors || ['ball_red', 'ball_green', 'ball_blue', 'ball_yellow'];
         
         this.ballRadius = 16;
         this.ballSpacing = this.ballRadius * 2; // 32 pixels exactly touching
@@ -112,7 +112,13 @@ class Chain {
                 if (this.state === 'GAME_OVER') {
                     currentSpeed = 800; // Rapid eating speed (increased)
                 } else if (this.zumaPushbackTimer > 0) {
-                    currentSpeed = -200; // Zuma pushback!
+                    if (i === 0) {
+                        currentSpeed = -200; // Only front-most chain rolls back
+                    } else if (seg.state === 'PULLING') {
+                        currentSpeed = -this.pullSpeed; // Keep magnetic gap attraction active
+                    } else {
+                        currentSpeed = 0; // Gaps stay stationary until hit by rolling back front chain
+                    }
                 } else if (i === this.segments.length - 1) {
                     currentSpeed = (this.state === 'ROLLOUT') ? this.rolloutSpeed : this.normalSpeed;
                     
